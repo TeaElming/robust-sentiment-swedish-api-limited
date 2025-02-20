@@ -16,7 +16,8 @@ def tokenize_and_analyse(data: TextInput):
     """
     Receives raw text, tokenizes it, and returns sentiment analysis in one request.
     """
-    tokenized = tokenize_text(data.text)  # Step 1: Tokenization
+    # Step 1: Tokenization
+    tokenized = tokenize_text(data.text)
     # Step 2: Sentiment Analysis
     sentiment = analyse_sentiment(
         tokenized["input_ids"], tokenized["attention_mask"])
