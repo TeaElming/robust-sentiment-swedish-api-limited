@@ -91,8 +91,8 @@ http://127.0.0.1:8000/docs
 ```
 
 ### **Sentiment Analysis**
-**Endpoint:** `POST /sentiment`
-**Description:** Accepts tokenized input and returns sentiment classification.
+**Endpoint:** `POST /get-sentiment`
+**Description:** Accepts text input, tokenizes it, and returns sentiment classification.
 
 #### **Request Example**
 ```json
