@@ -4,13 +4,10 @@ import torch
 MAX_LENGTH = 512
 OVERLAP = 256  # 50% of 512
 
-# Load model and tokenizer at startup (avoid reloading in each request)
-tokenizer = AutoTokenizer.from_pretrained(
-    "KBLab/megatron-bert-large-swedish-cased-165k")
-model = AutoModelForSequenceClassification.from_pretrained(
-    "KBLab/robust-swedish-sentiment-multiclass")
-classifier = pipeline("sentiment-analysis", model=model,
-                      tokenizer=tokenizer, return_all_scores=True)
+# Load model and tokenizer at startup
+tokenizer = AutoTokenizer.from_pretrained("KBLab/megatron-bert-large-swedish-cased-165k")
+model = AutoModelForSequenceClassification.from_pretrained("KBLab/robust-swedish-sentiment-multiclass")
+classifier = pipeline("sentiment-analysis", model=model, tokenizer=tokenizer, top_k=None)  # Use top_k=None instead of return_all_scores=True
 
 
 def analyse_sentiment(input_ids, attention_mask):
@@ -18,54 +15,61 @@ def analyse_sentiment(input_ids, attention_mask):
     Processes tokenized input with sliding window (50% overlap if length > 512 tokens).
     Returns a single sentiment label with the highest average score.
     """
+    print("Inside analyse_sentiment")  # Debugging
 
     def chunk_scores(chunk_ids, chunk_mask):
-        inputs = {
-            "input_ids": torch.tensor([chunk_ids], dtype=torch.long),
-            "attention_mask": torch.tensor([chunk_mask], dtype=torch.long)
-        }
+        # ✅ Ensure chunk_ids is a flat list before decoding
+        if isinstance(chunk_ids[0], list):
+            chunk_ids = [token for sublist in chunk_ids for token in sublist]
 
-        # Ensure the classifier returns a list of dictionaries
-        output = classifier(inputs)
-        if isinstance(output, list) and output and isinstance(output[0], list) and all(isinstance(i, dict) for i in output[0]):
-            return output[0]  # List of dicts, one per sentiment label
+        # ✅ Convert tokenized input back into text
+        text_input = tokenizer.decode(chunk_ids, skip_special_tokens=True)
+
+        print(f"Decoded text input for classifier: {text_input[:100]}...")  # Debugging (only first 100 chars)
+
+        # ✅ Ensure classifier gets a proper string
+        output = classifier(text_input)
+
+        if isinstance(output, list) and len(output) > 0 and isinstance(output[0], list):
+            return output[0]  # Extract scores
         return []
 
     length = len(input_ids)
     start = 0
     all_scores = {}
 
+    num_chunks = 0  # Count processed chunks
+
     while start < length:
         end = min(start + MAX_LENGTH, length)
         chunk_ids = input_ids[start:end]
         chunk_mask = attention_mask[start:end]
 
-        # Get sentiment distribution
+        # ✅ Get sentiment distribution for the chunk
         scores = chunk_scores(chunk_ids, chunk_mask)
 
-        # Accumulate scores by label
+        # ✅ Accumulate scores by label
         for s in scores:
-            label = s.get("label", "UNKNOWN")  # Safe extraction
-            score = float(s.get("score", 0.0))  # Ensure it's a float
+            label = s.get("label", "UNKNOWN")
+            score = float(s.get("score", 0.0))
             all_scores[label] = all_scores.get(label, 0.0) + score
+
+        num_chunks += 1
 
         # Move forward with overlap
         if end == length:
             break
         start += (MAX_LENGTH - OVERLAP)
 
-    # Avoid division by zero
-    n_chunks = max(1, len(range(0, length, MAX_LENGTH - OVERLAP)))
+    # ✅ Normalize scores across chunks
+    if num_chunks > 0:
+        for lbl in all_scores:
+            all_scores[lbl] /= num_chunks  # Average across chunks
 
-    # Average scores by number of chunks
-    for lbl in all_scores:
-        all_scores[lbl] /= n_chunks
-
-    # Select highest scoring label safely
+    # ✅ Select highest scoring label
     if all_scores:
-        best_label = max(all_scores, key=lambda lbl: float(
-            all_scores[lbl]))  # Ensure float values
-        best_score = float(all_scores[best_label])  # Cast to float for safety
+        best_label = max(all_scores, key=lambda lbl: all_scores[lbl])
+        best_score = all_scores[best_label]
     else:
         best_label, best_score = "UNKNOWN", 0.0  # Handle empty input case
 
