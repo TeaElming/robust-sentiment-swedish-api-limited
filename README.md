@@ -17,8 +17,8 @@ This repository provides a **FastAPI-based** sentiment analysis API using **KBLa
 
 ### **Clone the Repository**
 ```sh
- git clone https://github.com/yourusername/sentiment-analysis-api.git
- cd sentiment-analysis-api
+ git clone https://github.com/TeaElming/robust-sentiment-swedish-api-limited.git
+ cd robust-sentiment-swedish-api-limited
 ```
 
 ### **Set Up a Virtual Environment**

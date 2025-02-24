@@ -1,13 +1,18 @@
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
 import torch
+import time
 
 MAX_LENGTH = 512
 OVERLAP = 256  # 50% of 512
 
 # Load model and tokenizer at startup
-tokenizer = AutoTokenizer.from_pretrained("KBLab/megatron-bert-large-swedish-cased-165k")
-model = AutoModelForSequenceClassification.from_pretrained("KBLab/robust-swedish-sentiment-multiclass")
-classifier = pipeline("sentiment-analysis", model=model, tokenizer=tokenizer, top_k=None)  # Use top_k=None instead of return_all_scores=True
+tokenizer = AutoTokenizer.from_pretrained(
+    "KBLab/megatron-bert-large-swedish-cased-165k")
+model = AutoModelForSequenceClassification.from_pretrained(
+    "KBLab/robust-swedish-sentiment-multiclass")
+# Use top_k=None instead of return_all_scores=True
+classifier = pipeline("sentiment-analysis", model=model,
+                      tokenizer=tokenizer, top_k=None)
 
 
 def analyse_sentiment(input_ids, attention_mask):
@@ -15,19 +20,17 @@ def analyse_sentiment(input_ids, attention_mask):
     Processes tokenized input with sliding window (50% overlap if length > 512 tokens).
     Returns a single sentiment label with the highest average score.
     """
-    print("Inside analyse_sentiment")  # Debugging
+    start_time = time.perf_counter()
 
     def chunk_scores(chunk_ids, chunk_mask):
-        # ✅ Ensure chunk_ids is a flat list before decoding
+        # Ensure chunk_ids is a flat list before decoding
         if isinstance(chunk_ids[0], list):
             chunk_ids = [token for sublist in chunk_ids for token in sublist]
 
-        # ✅ Convert tokenized input back into text
+        # Convert tokenized input back into text
         text_input = tokenizer.decode(chunk_ids, skip_special_tokens=True)
 
-        print(f"Decoded text input for classifier: {text_input[:100]}...")  # Debugging (only first 100 chars)
-
-        # ✅ Ensure classifier gets a proper string
+        # Ensure classifier gets a proper string
         output = classifier(text_input)
 
         if isinstance(output, list) and len(output) > 0 and isinstance(output[0], list):
@@ -45,10 +48,10 @@ def analyse_sentiment(input_ids, attention_mask):
         chunk_ids = input_ids[start:end]
         chunk_mask = attention_mask[start:end]
 
-        # ✅ Get sentiment distribution for the chunk
+        # Get sentiment distribution for the chunk
         scores = chunk_scores(chunk_ids, chunk_mask)
 
-        # ✅ Accumulate scores by label
+        # Accumulate scores by label
         for s in scores:
             label = s.get("label", "UNKNOWN")
             score = float(s.get("score", 0.0))
@@ -61,16 +64,19 @@ def analyse_sentiment(input_ids, attention_mask):
             break
         start += (MAX_LENGTH - OVERLAP)
 
-    # ✅ Normalize scores across chunks
+    # Normalize scores across chunks
     if num_chunks > 0:
         for lbl in all_scores:
             all_scores[lbl] /= num_chunks  # Average across chunks
 
-    # ✅ Select highest scoring label
+    # Select highest scoring label
     if all_scores:
         best_label = max(all_scores, key=lambda lbl: all_scores[lbl])
         best_score = all_scores[best_label]
     else:
         best_label, best_score = "UNKNOWN", 0.0  # Handle empty input case
+
+    elapsed = time.perf_counter() - start_time
+    print(f"[Sentiment Analysis] Time taken: {elapsed:.4f} seconds")
 
     return {"label": best_label, "score": best_score}

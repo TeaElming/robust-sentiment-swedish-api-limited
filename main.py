@@ -1,9 +1,19 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from routes.sentiment_route import router as sentiment_router
 from routes.tokenizer_route import router as tokenizer_router
 
 app = FastAPI()
+
+# Allow CORS (Cross-Origin Requests)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow requests from all sources (use specific origins in production)
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Include routers for modular API structure
 app.include_router(sentiment_router)
