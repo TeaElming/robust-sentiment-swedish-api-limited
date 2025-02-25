@@ -26,7 +26,7 @@ def tokenize_text(text):
             break
 
     elapsed = time.perf_counter() - start_time
-    print(f"[Tokenization] Time taken: {elapsed:.4f} seconds")
+    print(f"[Tokenization] Time taken: {elapsed * 1000:.2f} ms")
 
     return {
         "input_ids": token_chunks,

@@ -26,6 +26,6 @@ def tokenize_and_analyse(data: TextInput):
         tokenized["input_ids"], tokenized["attention_mask"])
 
     total_elapsed = time.perf_counter() - total_start_time
-    print(f"[Total Request] Time taken: {total_elapsed:.4f} seconds")
+    print(f"[Total Request] Time taken: {total_elapsed * 1000:.2f} ms")
 
     return sentiment

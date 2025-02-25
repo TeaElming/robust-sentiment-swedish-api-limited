@@ -77,6 +77,6 @@ def analyse_sentiment(input_ids, attention_mask):
         best_label, best_score = "UNKNOWN", 0.0  # Handle empty input case
 
     elapsed = time.perf_counter() - start_time
-    print(f"[Sentiment Analysis] Time taken: {elapsed:.4f} seconds")
+    print(f"[Sentiment Analysis] Time taken: {elapsed * 1000:.2f} ms")
 
     return {"label": best_label, "score": best_score}
