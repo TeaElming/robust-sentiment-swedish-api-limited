@@ -6,19 +6,23 @@ import time
 
 router = APIRouter()
 
+
 class TextInput(BaseModel):
     text: str
+
 
 @router.post("/get-sentiment")
 def tokenize_and_analyse(data: TextInput):
     """
-    Receives raw text, tokenizes it, and returns sentiment analysis in one request.
+    Receives raw text, tokenizes it into chunks with sliding windows,
+    and returns sentiment analysis based on the average scores across chunks.
     """
     total_start_time = time.perf_counter()
 
-    # Step 1: Tokenization (your custom logic from tokenizer_model)
+    # Tokenize and chunk the text
     tokenized = tokenize_text(data.text)
-    # Step 2: Sentiment Analysis
+
+    # Run sentiment analysis on the pre-chunked tokens
     sentiment = analyse_sentiment(
         tokenized["input_ids"], tokenized["attention_mask"]
     )
