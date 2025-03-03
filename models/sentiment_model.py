@@ -2,7 +2,7 @@ import time
 import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
-MAX_LENGTH = 512  # Not used for additional chunking here
+MAX_LENGTH = 512  # Maximum tokens per chunk
 
 # Load tokenizer and model once (can be the same as in tokenization)
 tokenizer = AutoTokenizer.from_pretrained(
@@ -10,39 +10,46 @@ tokenizer = AutoTokenizer.from_pretrained(
 model = AutoModelForSequenceClassification.from_pretrained(
     "KBLab/robust-swedish-sentiment-multiclass")
 
+# Apply dynamic quantization for faster CPU inference
+model = torch.quantization.quantize_dynamic(
+    model, {torch.nn.Linear}, dtype=torch.qint8)
+
 
 def analyse_sentiment(token_chunks, mask_chunks):
     """
     Processes already-chunked input tokens in a single batched forward pass.
-    Pads each chunk to MAX_LENGTH, averages the probabilities over chunks,
+    Pads each chunk to MAX_LENGTH using vectorized operations,
+    averages the probabilities over chunks,
     and returns the label with the highest average score.
     """
     start_time = time.perf_counter()
 
-    # Pad each chunk to MAX_LENGTH
-    padded_token_chunks = []
-    padded_mask_chunks = []
-    pad_token_id = tokenizer.pad_token_id if tokenizer.pad_token_id is not None else 0
+    # Ensure pad_token_id is an integer
+    pad_token_id = tokenizer.pad_token_id
+    if pad_token_id is None or not isinstance(pad_token_id, int):
+        pad_token_id = 0
 
-    for chunk, mask in zip(token_chunks, mask_chunks):
-        pad_len = MAX_LENGTH - len(chunk)
-        # Pad token IDs with pad_token_id and mask with 0
-        padded_token_chunks.append(chunk + [pad_token_id] * pad_len)
-        padded_mask_chunks.append(mask + [0] * pad_len)
+    num_chunks = len(token_chunks)
 
-    # Convert lists of padded chunks to batched tensors
-    input_ids_t = torch.tensor(padded_token_chunks, dtype=torch.long)
-    attention_mask_t = torch.tensor(padded_mask_chunks, dtype=torch.long)
+    # Preallocate padded tensors using the integer pad_token_id
+    input_ids_t = torch.full((num_chunks, MAX_LENGTH),
+                             pad_token_id, dtype=torch.long)
+    attention_mask_t = torch.zeros((num_chunks, MAX_LENGTH), dtype=torch.long)
+
+    for i, (chunk, mask) in enumerate(zip(token_chunks, mask_chunks)):
+        chunk_len = len(chunk)
+        # Fill the corresponding slice with the actual tokens and masks
+        input_ids_t[i, :chunk_len] = torch.tensor(chunk, dtype=torch.long)
+        attention_mask_t[i, :chunk_len] = torch.tensor(mask, dtype=torch.long)
 
     with torch.no_grad():
         outputs = model(input_ids=input_ids_t, attention_mask=attention_mask_t)
         logits = outputs.logits      # shape: (num_chunks, num_labels)
-        # shape: (num_chunks, num_labels)
         probs = torch.softmax(logits, dim=-1)
 
     # Average the probabilities across all chunks
-    avg_probs = probs.mean(dim=0)  # shape: (num_labels,)
-    best_idx = int(avg_probs.argmax().item())  # Cast explicitly to int
+    avg_probs = probs.mean(dim=0)
+    best_idx = int(avg_probs.argmax().item())
     best_label = model.config.id2label[best_idx]
     best_score = float(avg_probs[best_idx].item())
 
