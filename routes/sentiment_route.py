@@ -1,75 +1,49 @@
+# sentiment_router.py
 from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import List
-from models.sentiment_model import analyse_sentiment
-from models.tokenizer_model import tokenize_text
 import time
 
-router = APIRouter()
+# Import the single `analyse_sentiment` function:
+from models.combined_model import analyse_sentiment
 
+router = APIRouter()
 
 class TextSection(BaseModel):
     id: str
     content: str
 
-
 class TextInput(BaseModel):
     text: str
-
 
 class SectionInput(BaseModel):
     sections: List[TextSection]
 
-
 @router.post("/get-sentiment")
-def tokenize_and_analyse(data: TextInput):
+def get_sentiment(data: TextInput):
     """
-    Receives raw text, tokenizes it into chunks with sliding windows,
-    and returns sentiment analysis based on the average scores across chunks.
+    Analyzes sentiment of a single text.
     """
-    total_start_time = time.perf_counter()
-
-    # Tokenize and chunk the text
-    tokenized = tokenize_text(data.text)
-
-    # Run sentiment analysis on the pre-chunked tokens
-    sentiment = analyse_sentiment(
-        tokenized["input_ids"], tokenized["attention_mask"]
-    )
-
-    total_elapsed = time.perf_counter() - total_start_time
-    print(f"[Total Request] Time taken: {total_elapsed * 1000:.2f} ms")
-
-    return sentiment
-
+    start_time = time.perf_counter()
+    sentiment_result = analyse_sentiment(data.text)
+    total_elapsed = (time.perf_counter() - start_time) * 1000
+    print(f"[Total Request] Time taken: {total_elapsed:.2f} ms")
+    return sentiment_result
 
 @router.post("/get-sentiment-sections")
-def tokenize_and_analyse_json(request: dict):
+def get_sentiment_sections(request: SectionInput):
     """
-    Receives a JSON object containing a 'sections' array, analyses each section separately,
-    and returns a list of sentiment results.
+    Analyzes sentiment for multiple sections (each possibly short or long).
     """
-    total_start_time = time.perf_counter()
+    start_time = time.perf_counter()
     results = []
-
-    # Extract the sections array from the request
-    sections = request.get("sections", [])
-
-    for section in sections:
-        # Tokenize and analyze each section separately
-        tokenized = tokenize_text(section["content"])
-        sentiment = analyse_sentiment(
-            tokenized["input_ids"], tokenized["attention_mask"]
-        )
-
-        # Append results in required format
+    for section in request.sections:
+        sentiment = analyse_sentiment(section.content)
         results.append({
-            "id": section["id"],
-            "label": sentiment.get("label", ""),
-            "score": sentiment.get("score", 0.0),
+            "id": section.id,
+            "label": sentiment["label"],
+            "score": sentiment["score"]
         })
-
-    total_elapsed = time.perf_counter() - total_start_time
-    print(f"[Total Request] Time taken: {total_elapsed * 1000:.2f} ms")
-
+    total_elapsed = (time.perf_counter() - start_time) * 1000
+    print(f"[Total Request] Time taken: {total_elapsed:.2f} ms")
     return results
