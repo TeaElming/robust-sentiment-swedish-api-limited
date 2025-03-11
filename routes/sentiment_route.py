@@ -1,21 +1,24 @@
-# sentiment_router.py
+# sentiment_routes.py
 from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import List
 import time
 
-# Import the single `analyse_sentiment` function:
+# Import the functions from separate model files:
 from models.combined_model import analyse_sentiment
-from models.basic_sentiment_model import analyse_text_basic
+from models.basic_sentiment_model import analyse_text_basic, analyse_text_ultra_basic
 
 router = APIRouter()
+
 
 class TextSection(BaseModel):
     id: str
     content: str
 
+
 class TextInput(BaseModel):
     text: str
+
 
 class SectionInput(BaseModel):
     sections: List[TextSection]
@@ -26,8 +29,20 @@ def get_sentiment_basic(data: TextInput):
     start_time = time.perf_counter()
     score, label = analyse_text_basic(data.text)
     total_elapsed = (time.perf_counter() - start_time) * 1000
-    print(f"[Total Request - get-sentiment-basic] Time taken: {total_elapsed:.2f} ms")
+    print(
+        f"[Total Request - get-sentiment-basic] Time taken: {total_elapsed:.2f} ms")
     return {"score": score, "label": label}
+
+
+@router.post("/get-sentiment-ultra-basic")
+def get_sentiment_ultra_basic(data: TextInput):
+    start_time = time.perf_counter()
+    score, label = analyse_text_ultra_basic(data.text)
+    total_elapsed = (time.perf_counter() - start_time) * 1000
+    print(
+        f"[Total Request - get-sentiment-ultra-basic] Time taken: {total_elapsed:.2f} ms")
+    return {"score": score, "label": label}
+
 
 @router.post("/get-sentiment")
 def get_sentiment(data: TextInput):
@@ -37,13 +52,15 @@ def get_sentiment(data: TextInput):
     start_time = time.perf_counter()
     sentiment_result = analyse_sentiment(data.text)
     total_elapsed = (time.perf_counter() - start_time) * 1000
-    print(f"[Total Request - get-sentiment] Time taken: {total_elapsed:.2f} ms")
+    print(
+        f"[Total Request - get-sentiment] Time taken: {total_elapsed:.2f} ms")
     return sentiment_result
+
 
 @router.post("/get-sentiment-sections")
 def get_sentiment_sections(request: SectionInput):
     """
-    Analyzes sentiment for multiple sections (each possibly short or long).
+    Analyzes sentiment for multiple sections.
     """
     start_time = time.perf_counter()
     results = []
@@ -55,5 +72,6 @@ def get_sentiment_sections(request: SectionInput):
             "score": sentiment["score"]
         })
     total_elapsed = (time.perf_counter() - start_time) * 1000
-    print(f"[Total Request - get-sentiment-sections] Time taken: {total_elapsed:.2f} ms")
+    print(
+        f"[Total Request - get-sentiment-sections] Time taken: {total_elapsed:.2f} ms")
     return results
