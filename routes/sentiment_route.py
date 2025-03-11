@@ -6,6 +6,7 @@ import time
 
 # Import the single `analyse_sentiment` function:
 from models.combined_model import analyse_sentiment
+from models.basic_sentiment_model import analyse_text_basic
 
 router = APIRouter()
 
@@ -19,6 +20,15 @@ class TextInput(BaseModel):
 class SectionInput(BaseModel):
     sections: List[TextSection]
 
+
+@router.post("/get-sentiment-basic")
+def get_sentiment_basic(data: TextInput):
+    start_time = time.perf_counter()
+    score, label = analyse_text_basic(data.text)
+    total_elapsed = (time.perf_counter() - start_time) * 1000
+    print(f"[Total Request - get-sentiment-basic] Time taken: {total_elapsed:.2f} ms")
+    return {"score": score, "label": label}
+
 @router.post("/get-sentiment")
 def get_sentiment(data: TextInput):
     """
@@ -27,7 +37,7 @@ def get_sentiment(data: TextInput):
     start_time = time.perf_counter()
     sentiment_result = analyse_sentiment(data.text)
     total_elapsed = (time.perf_counter() - start_time) * 1000
-    print(f"[Total Request] Time taken: {total_elapsed:.2f} ms")
+    print(f"[Total Request - get-sentiment] Time taken: {total_elapsed:.2f} ms")
     return sentiment_result
 
 @router.post("/get-sentiment-sections")
@@ -45,5 +55,5 @@ def get_sentiment_sections(request: SectionInput):
             "score": sentiment["score"]
         })
     total_elapsed = (time.perf_counter() - start_time) * 1000
-    print(f"[Total Request] Time taken: {total_elapsed:.2f} ms")
+    print(f"[Total Request - get-sentiment-sections] Time taken: {total_elapsed:.2f} ms")
     return results
