@@ -35,8 +35,13 @@ def analyse_text_ultra_basic(text: str) -> tuple[float, str]:
     Ultra basic sentiment analysis using Hugging Face's pipeline.
     Returns a tuple (score, label).
     """
-    classifier = pipeline("sentiment-analysis",
-                          model=model, tokenizer=tokenizer)
+    classifier = pipeline(
+        "sentiment-analysis",
+        model=model,
+        tokenizer=tokenizer,
+        truncation=True,
+        max_length=512
+    )
     result = classifier(text)
     if isinstance(result, list) and result:
         res = result[0]
@@ -64,31 +69,36 @@ def analyse_multiple_ultra(texts: list[str]) -> list[dict]:
     return [{"score": score, "label": label} for score, label in results]
 
 
-
 SentimentOutput = Union[Tuple[float, str], Dict[str, Union[float, str]]]
 
 def analyse_long_ultra(text: str, window_size: int = 512, overlap: float = 0.5) -> SentimentOutput:
-    # If the text is short enough, simply use the ultra basic method.
-    if len(text) <= window_size:
+    # "window_size" is nominally 512, but we subtract a bit more
+    # to avoid ever going above 512 once special tokens + re-tokenization are added.
+    chunk_size = window_size - 4  # Subtract 4 instead of 2 to be safe
+
+    tokens = tokenizer.encode(text, add_special_tokens=False)
+
+    # If text is short enough, just do a single pass
+    if len(tokens) <= chunk_size:
         return analyse_text_ultra_basic(text)
 
-    stride = int(window_size * (1 - overlap))
+    stride = int(chunk_size * (1 - overlap))
     windows = []
-    for i in range(0, len(text), stride):
-        window_text = text[i:i+window_size]
-        if window_text:
-            windows.append(window_text)
-        if i + window_size >= len(text):
+    for i in range(0, len(tokens), stride):
+        token_chunk = tokens[i:i + chunk_size]
+        window_text = tokenizer.decode(
+            token_chunk, skip_special_tokens=True, clean_up_tokenization_spaces=False
+        )
+        windows.append(window_text)
+        if i + chunk_size >= len(tokens):
             break
 
-    # Process windows in parallel using your existing function.
     results = analyse_multiple_ultra(windows)
 
-    # Use majority voting for label.
+    # Majority voting
     labels = [res["label"] for res in results]
     majority_label = Counter(labels).most_common(1)[0][0]
-    majority_scores = [res["score"]
-                       for res in results if res["label"] == majority_label]
+    majority_scores = [res["score"] for res in results if res["label"] == majority_label]
     overall_score = (sum(majority_scores) / len(majority_scores)
                      if majority_scores
                      else sum(res["score"] for res in results) / len(results))
