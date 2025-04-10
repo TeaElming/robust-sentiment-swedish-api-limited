@@ -4,7 +4,7 @@ import uvicorn
 from routes.sentiment_route import router as sentiment_router
 from routes.tokenizer_route import router as tokenizer_router
 
-app = FastAPI()
+app = FastAPI(root_path="/api/v2/sentimentis/") # TODO: Should be replaced with the actual root path when deploying, should have an ENV instead here
 
 # Allow CORS (Cross-Origin Requests)
 app.add_middleware(
