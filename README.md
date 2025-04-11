@@ -130,19 +130,15 @@ http://127.0.0.1:8000/docs
 
 ## **Running with Docker (Optional)**
 
-If you prefer to run this API as a containerized service:
+If you prefer to run this API in a Docker container:
 
-### **Build the Docker Image**
+
+### **Build and Run the Docker Container**
 ```sh
-docker build -t sentiment-api .
+docker compose -f docker-compose.prod.yml up --build -d
 ```
 
-### **Run the Docker Container**
-```sh
-docker run -p 8000:8000 sentiment-api
-```
-
-The API will now be available at `http://127.0.0.1:8000/docs`
+The API will now be available at `http://127.0.0.1:8002/docs`
 
 ---
 

@@ -9,4 +9,6 @@ services:
     ports:
       - "8002:8002"
     restart: always
-
+    runtime: nvidia  
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
