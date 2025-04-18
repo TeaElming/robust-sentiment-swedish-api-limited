@@ -1,1 +1,6 @@
 sentimentAPI/
+
+test_runner/.venv/
+test_runner/.env
+
+
