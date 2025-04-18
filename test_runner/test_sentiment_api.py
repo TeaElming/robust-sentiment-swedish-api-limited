@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 BASE_URL = os.getenv("BASE_URL")
-RUNS = 100
+RUNS = 100  # Number of runs for each endpoint
 
 ENDPOINTS = {
     "/get-sentiment-ultra-basic": "../tests/data/shortform.json",
@@ -49,7 +49,7 @@ def main():
         writer = csv.DictWriter(f, fieldnames=["endpoint", "numberOfRuns", "avgTime"])
         writer.writeheader()
         writer.writerows(results)
-    print(f"✅ Results saved to {file}")
+    print(f"Results saved to {file}")
 
 if __name__ == "__main__":
     main()

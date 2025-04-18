@@ -1,0 +1,4 @@
+endpoint,numberOfRuns,avgTime
+/get-sentiment-ultra-basic,10,0.5353
+/get-sentiment-ultra-sections,10,1.0558
+/get-sentiment-long-form,10,0.9554
