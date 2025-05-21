@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+# section_latency_probe_x100.py
 import os
 import time
 import json
@@ -8,7 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 BASE_URL = os.getenv("BASE_URL")
-RUNS = 100  # number of POSTs per file
+RUNS = 100                          # one hundred posts per file
 ENDPOINT = "/get-sentiment-ultra-sections"
 
 SECTION_FILES = [
@@ -19,55 +21,56 @@ SECTION_FILES = [
     "../tests/data/sectionLengths/section50.json",
 ]
 
+# --------------------------------------------------------------------------- #
+
 
 def load_json(path: str):
-    with open(path, encoding="utf-8") as f:
-        return json.load(f)
+    with open(path, encoding="utf-8") as fh:
+        return json.load(fh)
 
 
-def avg_latency(data: dict) -> float:
-    total = 0.0
-    for _ in range(RUNS):
-        start = time.time()
-        requests.post(BASE_URL + ENDPOINT, json=data)
-        total += time.time() - start
-    return total / RUNS
+def time_single_call(payload: dict) -> float:
+    start = time.perf_counter()
+    requests.post(BASE_URL + ENDPOINT, json=payload)
+    return time.perf_counter() - start
 
 
 def next_csv_name() -> str:
     i = 1
-    while os.path.exists(f"section_tests{i}.csv"):
+    while os.path.exists(f"section_tests{i}_x100.csv"):
         i += 1
-    return f"section_tests{i}.csv"
+    return f"section_tests{i}_x100.csv"
+
+# --------------------------------------------------------------------------- #
 
 
 def main():
-    results = []
-
+    rows = []
     for path in SECTION_FILES:
-        payload = load_json(path)
-        num_sections = len(payload.get("sections", []))
-        avg_time = round(avg_latency(payload), 4)
+        data = load_json(path)
+        n_sections = len(data.get("sections", []))
 
-        results.append(
-            {
-                "number of sections": num_sections,
-                "number of runs": RUNS,
-                "average time": avg_time,
-            }
-        )
+        for run in range(1, RUNS + 1):
+            elapsed = round(time_single_call(data), 4)
+            rows.append(
+                {
+                    "sections": n_sections,
+                    "run": run,
+                    "elapsed_seconds": elapsed,
+                }
+            )
 
-    csv_name = next_csv_name()
-    with open(csv_name, "w", newline="", encoding="utf-8") as f:
+    outfile = next_csv_name()
+    with open(outfile, "w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(
-            f,
-            fieldnames=["number of sections", "number of runs", "average time"],
+            fh, fieldnames=["sections", "run", "elapsed_seconds"]
         )
         writer.writeheader()
-        writer.writerows(results)
+        writer.writerows(rows)
 
-    print(f"Results saved to {csv_name}")
+    print(f"Wrote {len(rows)} measurements to {outfile}")
 
 
+# --------------------------------------------------------------------------- #
 if __name__ == "__main__":
     main()

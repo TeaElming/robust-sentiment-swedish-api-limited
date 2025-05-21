@@ -8,48 +8,61 @@ from dotenv import load_dotenv
 load_dotenv()
 
 BASE_URL = os.getenv("BASE_URL")
-RUNS = 100  # Number of runs for each endpoint
+RUNS = 100  # number of runs per endpoint
 
 ENDPOINTS = {
-    "/get-sentiment-ultra-basic": "../tests/data/shortform.json",
+    "/get-sentiment-ultra-basic":   "../tests/data/shortform.json",
     "/get-sentiment-ultra-sections": "../tests/data/ultrasections.json",
-    "/get-sentiment-long-form": "../tests/data/longform.json"
+    "/get-sentiment-long-form":    "../tests/data/longform.json",
 }
 
-def load_data(path):
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+# ---------- helpers ---------------------------------------------------------
 
-def measure(endpoint, data):
-    total = 0.0
-    for _ in range(RUNS):
-        start = time.time()
-        requests.post(BASE_URL + endpoint, json=data)
-        total += time.time() - start
-    return total / RUNS
 
-def get_next_csv():
+def load_data(path: str):
+    with open(path, encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def time_single_call(endpoint: str, payload: dict) -> float:
+    """POST once and return elapsed time in seconds."""
+    start = time.perf_counter()
+    requests.post(BASE_URL + endpoint, json=payload)
+    return time.perf_counter() - start
+
+
+def next_csv_name() -> str:
     i = 1
-    while os.path.exists(f"test{i}.csv"):
+    while os.path.exists(f"test{i}_x100.csv"):
         i += 1
-    return f"test{i}.csv"
+    return f"test{i}_x100.csv"
+
+# ---------- main ------------------------------------------------------------
+
 
 def main():
-    results = []
+    rows = []  # one row per run
     for ep, path in ENDPOINTS.items():
         data = load_data(path)
-        avg = round(measure(ep, data), 4)
-        results.append({
-            "endpoint": ep,
-            "numberOfRuns": RUNS,
-            "avgTime": avg
-        })
-    file = get_next_csv()
-    with open(file, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["endpoint", "numberOfRuns", "avgTime"])
+        for run_idx in range(1, RUNS + 1):
+            elapsed = round(time_single_call(ep, data), 4)
+            rows.append(
+                {
+                    "endpoint": ep,
+                    "run": run_idx,
+                    "elapsed_seconds": elapsed,
+                }
+            )
+
+    outfile = next_csv_name()
+    with open(outfile, "w", newline="", encoding="utf-8") as fh:
+        writer = csv.DictWriter(
+            fh, fieldnames=["endpoint", "run", "elapsed_seconds"])
         writer.writeheader()
-        writer.writerows(results)
-    print(f"Results saved to {file}")
+        writer.writerows(rows)
+
+    print(f"Saved {len(rows)} measurements to {outfile}")
+
 
 if __name__ == "__main__":
     main()
